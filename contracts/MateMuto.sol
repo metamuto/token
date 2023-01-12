@@ -20,7 +20,7 @@ contract MateMuto is ERC20,Ownable {
     address private _deadAddress;
     
     uint32 public buyBackFee; 
-    uint32 public sellBackFee; // 3000 => 30%
+    uint32 public sellBackFee;
     uint32 public operatorFee; 
     uint32 public liquidityFee;
     uint32 public transferTaxRate;
@@ -38,9 +38,10 @@ contract MateMuto is ERC20,Ownable {
     event UniswapV2RouterUpdated(address sender, address router, address uinSwapPair);
     event SwapAndLiquify(uint256 halfLiquidityAmount, uint256 newBalance, uint256 otherhalf);
 
-    constructor(address _dead) ERC20("MutoToken", "MT") {
+    constructor(address _dead) ERC20("MutoToken", "MUTO") {
         _deadAddress = _dead;
-        _owner =  msg.sender;
+        initialize();
+        
     }
     receive() external payable {}
 
@@ -50,16 +51,26 @@ contract MateMuto is ERC20,Ownable {
         _inSwapAndLiquify = false;
     }
  
+    function initialize() public {
+        buyBackFee = 0;
+        sellBackFee = 0;
+        operatorFee = 0;
+        liquidityFee = 0;
+        transferTaxRate = 0;
+        _owner = msg.sender;
+        operator = msg.sender;
+        _mint(msg.sender, 10000000e18);
+    }
+    
     function addLiquidity(uint256 tokenAmount, uint256 ethAmount) private {
         _approve(address(this), address(uniswapV2Router), tokenAmount);
-
         uniswapV2Router.addLiquidityETH{value: ethAmount}(
-        address(this),
-        tokenAmount,
-        0, // slippage is unavoidable
-        0, // slippage is unavoidable
-        _owner,
-        block.timestamp
+            address(this),
+            tokenAmount,
+            0, // slippage is unavoidable
+            0, // slippage is unavoidable
+            _owner,
+            block.timestamp
         );
         emit LiquidityAdded(tokenAmount, ethAmount);
     }
@@ -157,32 +168,36 @@ contract MateMuto is ERC20,Ownable {
         require(sent, "Failed to withdraw");
     }
 
-    function setBuyFee(uint32 value) public onlyOwner {
-        buyBackFee = value;
+    function setBuyFee(uint32 _buyBackFee) public onlyOwner {
+        buyBackFee = _buyBackFee;
     }
 
-    function setSellFee(uint32 value) public onlyOwner {
-        sellBackFee = value;
-    }
-
-    function setOperator(address account) public onlyOwner {
-        operator = account;
-    }
-
-    function setOperatorFee(uint32 value) public onlyOwner {
-        operatorFee = value;
-    }
-
-    function setLiquidityFee(uint32 value) public onlyOwner {
-        liquidityFee = value;
-    }
-    
     function addBlacklist(address _account) public onlyOwner {
         blacklist[_account] = true;
     }
 
+    function setSellFee(uint32 _sellBackFee) public onlyOwner {
+        sellBackFee = _sellBackFee;
+    }
+
+    function setTokensPerEth(uint256 _amount) public onlyOwner {
+        tokensPerEth = _amount;
+    }
+
     function setExcludedFromFee(address account) public onlyOwner {
         isExcludedFromFee[account] = true;
+    }    
+
+    function setOperatorFee(uint32 _operatorFee) public onlyOwner {
+        operatorFee = _operatorFee;
+    }
+
+    function setLiquidityFee(uint32 _liquidityFee) public onlyOwner {
+        liquidityFee = _liquidityFee;
+    }
+    
+    function setOperator(address _operatorAddress) public onlyOwner {
+        operator = _operatorAddress;
     }
 
     function removeExcludedFromFee(address account) public onlyOwner {
