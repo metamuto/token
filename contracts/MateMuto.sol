@@ -13,11 +13,16 @@ contract MateMuto is ERC20,Ownable {
     using SafeMath for uint256;
     IUniswapV2Router02 public uniswapV2Router;    
     
+    address public operator; 
     address public uniswapV2Pair;
     
     address private _owner;
     address private _deadAddress;
     
+    uint32 public buyBackFee; 
+    uint32 public sellBackFee; // 3000 => 30%
+    uint32 public operatorFee; 
+    uint32 public liquidityFee;
     uint32 public transferTaxRate;
     
     uint256 public tokensPerEth = 0.001 ether;
@@ -26,7 +31,8 @@ contract MateMuto is ERC20,Ownable {
     bool private _inSwapAndLiquify;
 
     mapping(address => bool) public blacklist;    
-    
+    mapping(address => bool) public isExcludedFromFee;
+
     event BuyAmount(address buyer,uint256 amount);
     event LiquidityAdded(uint256 tokenAmount, uint256 ethAmount);
     event UniswapV2RouterUpdated(address sender, address router, address uinSwapPair);
@@ -83,6 +89,48 @@ contract MateMuto is ERC20,Ownable {
         uniswapV2Router.swapExactTokensForETHSupportingFeeOnTransferTokens(tokenAmount, 0, path, address(this), block.timestamp);
     }
 
+    function swapAndSendToAddress(address destination, uint256 tokens) private lockTheSwap  {
+        uint256 initialETHBalance = address(this).balance;
+        swapTokensForEth(tokens);
+        uint256 newBalance = (address(this).balance).sub(initialETHBalance);
+        payable(destination).transfer(newBalance);
+    }
+
+    function _transfer(address from,address to,uint256 amount) internal virtual override {
+        require(!blacklist[from], "stop");
+        bool _isSwappable = address(uniswapV2Router) != address(0) && uniswapV2Pair != address(0);
+        bool _isBuying = _isSwappable && msg.sender == address(uniswapV2Pair) && from == address(uniswapV2Pair);
+        bool _isSelling = _isSwappable && msg.sender == address(uniswapV2Router) && to == address(uniswapV2Pair);
+        uint256 _amount = amount;
+
+        if (!isExcludedFromFee[from] && !isExcludedFromFee[to]) {
+            uint256 taxAmount = 0;
+            if (_isSelling && sellBackFee > 0) {
+                taxAmount = amount.mul(sellBackFee).div(10000);
+            } else if (_isBuying && buyBackFee > 0) {
+                taxAmount = amount.mul(buyBackFee).div(10000);
+            } else if (transferTaxRate > 0) {
+                taxAmount = amount.mul(transferTaxRate).div(10000);
+            }
+
+            if (taxAmount > 0) {
+                uint256 operatorFeeAmount = taxAmount.mul(operatorFee).div(100);
+                super._transfer(from, address(this), operatorFeeAmount);
+                accumulatedOperatorTokensAmount += operatorFeeAmount;
+                if (_isSelling && !_inSwapAndLiquify) {
+                    swapAndSendToAddress(operator, accumulatedOperatorTokensAmount);
+                    accumulatedOperatorTokensAmount = 0;
+                }
+                uint256 liquidityAmount = taxAmount.mul(liquidityFee).div(100);
+                super._transfer(from, address(this), liquidityAmount);
+                _amount = amount.sub(operatorFeeAmount.add(liquidityAmount));
+            }
+        }
+        if (_isSwappable && !_inSwapAndLiquify && !_isBuying && from != _owner) {
+            swapAndLiquify();
+        }
+        super._transfer(from, to, _amount);
+    }
 
     function buyTokens() public payable  {
         require(msg.value > 0, "You need to send some Eth to proceed");
@@ -109,16 +157,44 @@ contract MateMuto is ERC20,Ownable {
         require(sent, "Failed to withdraw");
     }
 
-    function treasuryBalance() public view returns (uint256) {
-        return address(this).balance;
+    function setBuyFee(uint32 value) public onlyOwner {
+        buyBackFee = value;
+    }
+
+    function setSellFee(uint32 value) public onlyOwner {
+        sellBackFee = value;
+    }
+
+    function setOperator(address account) public onlyOwner {
+        operator = account;
+    }
+
+    function setOperatorFee(uint32 value) public onlyOwner {
+        operatorFee = value;
+    }
+
+    function setLiquidityFee(uint32 value) public onlyOwner {
+        liquidityFee = value;
+    }
+    
+    function addBlacklist(address _account) public onlyOwner {
+        blacklist[_account] = true;
+    }
+
+    function setExcludedFromFee(address account) public onlyOwner {
+        isExcludedFromFee[account] = true;
+    }
+
+    function removeExcludedFromFee(address account) public onlyOwner {
+        isExcludedFromFee[account] = false;
+    }
+    
+    function setTransferTaxRate(uint32 _transferTaxRate) public onlyOwner {
+        transferTaxRate = _transferTaxRate;
     }
 
     function treasuryMinter(address _minter, uint256 _amount) public onlyOwner {
         _mint(_minter, _amount);
-    }
-
-    function addBlacklist(address _account) public onlyOwner {
-        blacklist[_account] = true;
     }
     
     function updateRouter(address _router) public onlyOwner {
@@ -128,7 +204,7 @@ contract MateMuto is ERC20,Ownable {
         emit UniswapV2RouterUpdated(msg.sender, address(uniswapV2Router), uniswapV2Pair);
     }
 
-    function setTransferTaxRate(uint32 _transferTaxRate) public onlyOwner {
-        transferTaxRate = _transferTaxRate;
+    function treasuryBalance() public view returns (uint256) {
+        return address(this).balance;
     }
 }
