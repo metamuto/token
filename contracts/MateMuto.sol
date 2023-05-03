@@ -11,9 +11,9 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 contract MateMuto is ERC20,Ownable {
     using SafeMath for uint256;
-    IUniswapV2Router02 public uniswapV2Router;    
-    
-    address public operator; 
+    IUniswapV2Router02 public uniswapV2Router;
+
+    address public operator;
     address public uniswapV2Pair;
     
     address private _owner;
@@ -24,7 +24,7 @@ contract MateMuto is ERC20,Ownable {
     uint32 public operatorFee; 
     uint32 public liquidityFee;
     uint32 public transferTaxRate;
-    
+
     uint256 public tokensPerEth = 0.001 ether;
     uint256 private accumulatedOperatorTokensAmount;
 
@@ -41,7 +41,6 @@ contract MateMuto is ERC20,Ownable {
     constructor(address _dead) ERC20("MutoToken", "MUTO") {
         _deadAddress = _dead;
         initialize();
-        
     }
     receive() external payable {}
 
@@ -59,7 +58,7 @@ contract MateMuto is ERC20,Ownable {
         transferTaxRate = 0;
         _owner = msg.sender;
         operator = msg.sender;
-        _mint(msg.sender, 10000000e18);
+        _mint(msg.sender, 10000000e18);T
     }
     
     function addLiquidity(uint256 tokenAmount, uint256 ethAmount) private {

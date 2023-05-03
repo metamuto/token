@@ -1,6 +1,6 @@
 {
-  "name": "@uniswap/v3-periphery",
-  "description": "🎚 Peripheral smart contracts for interacting with Uniswap V3",
+  "name": "muto-token",
+  "description": "",
   "license": "GPL-2.0-or-later",
   "publishConfig": {
     "access": "public"
@@ -14,7 +14,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/Uniswap/uniswap-v3-periphery"
+    "url": "git+https://github.com/Uniswap/uniswap-v3-periphery.git"
   },
   "files": [
     "contracts/base",
@@ -75,5 +75,13 @@
   "scripts": {
     "compile": "hardhat compile",
     "test": "hardhat test"
-  }
+  },
+  "bugs": {
+    "url": "https://github.com/Uniswap/uniswap-v3-periphery/issues"
+  },
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "author": ""
 }
